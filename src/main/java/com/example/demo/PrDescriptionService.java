@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -12,10 +13,11 @@ import java.util.stream.Stream;
 @Service
 public class PrDescriptionService {
 
-    private final ChatClient chat;
+    private final ChatClient chat; // can be null
 
-    public PrDescriptionService(ChatClient chat) { this.chat = chat; }
-
+    public PrDescriptionService(@Autowired(required = false) ChatClient chat) {
+        this.chat = chat;
+    }
     /** Deterministic Markdown from commits (no AI). */
     public String buildDeterministic(List<CommitMessage> commits) {
         if (commits == null || commits.isEmpty()) return "# Update\n\n_No commits found._\n";
@@ -75,18 +77,19 @@ public class PrDescriptionService {
 
     /** Optional polish with AI (keeps structure, improves wording). */
     public String polishWithAi(String markdown) {
+        if (chat == null) return markdown; // no AI available in CI: just return deterministic text
         try {
             String prompt = """
-      Improve clarity and tone of the following PR description, but keep the same sections and bullets.
-      Do not add extra sections. Keep the title succinct.
+        Improve clarity and tone of the following PR description, but keep the same sections and bullets.
+        Do not add extra sections. Keep the title succinct.
 
-      ---
-      %s
-      ---
-      """.formatted(markdown);
+        ---
+        %s
+        ---
+        """.formatted(markdown);
             return chat.prompt(prompt).call().content();
         } catch (Exception e) {
-            return markdown; // fail-safe
+            return markdown;
         }
     }
 

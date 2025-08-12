@@ -10,19 +10,18 @@ import java.util.List;
 
 @RestController
 public class CommitController {
+
     @Autowired
-    PrDescriptionService prDescriptionService;
+    private PrDescriptionService prDescriptionService;
 
-    private final CommitService service;
-    private final ChatClient chat;
+    // Make these OPTIONAL – app can run without them (e.g., in CI)
+    @Autowired(required = false)
+    private CommitService service;
 
-    public CommitController(CommitService service, ChatClient chat) {
-        this.service = service;
-        this.chat = chat;
-    }
+    @Autowired(required = false)
+    private ChatClient chat;
 
-    record GenerateRequest(String repo, String author, List<String> files, String diff) {}
-    record GenerateResponse(String message, CommitMessage structured) {}
+    // --- PR description endpoints (work in CI with no OpenAI key) ---
 
     @PostMapping(path = "/generate-pr-description",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -45,17 +44,18 @@ public class CommitController {
         return polish ? prDescriptionService.polishWithAi(md) : md;
     }
 
-
     @GetMapping(path = "/health", produces = MediaType.TEXT_PLAIN_VALUE)
     public String health() { return "ok"; }
 
+    // --- Endpoints below need ChatClient / CommitService; guard them ---
+
     @GetMapping(path = "/ping-openai", produces = MediaType.TEXT_PLAIN_VALUE)
     public String pingOpenAI() {
+        if (chat == null) return "PING DISABLED (no ChatClient)";
         try { return chat.prompt("Say OK").call().content(); }
         catch (Exception e) { e.printStackTrace(); return "PING ERROR: " + e.getMessage(); }
     }
 
-    // Debug endpoint that returns the raw model output for troubleshooting
     @PostMapping(path = "/debug-generate-raw",
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             produces = MediaType.TEXT_PLAIN_VALUE)
@@ -63,14 +63,15 @@ public class CommitController {
                            @RequestParam(defaultValue = "dev") String author,
                            @RequestParam String diff,
                            @RequestParam(name = "files", defaultValue = "") String filesRaw) {
+        if (chat == null) return "DEBUG DISABLED (no ChatClient)";
         var files = (filesRaw == null || filesRaw.isBlank())
                 ? List.<String>of()
                 : Arrays.stream(filesRaw.split("\\R|,"))
                 .map(String::trim).filter(s -> !s.isBlank()).toList();
 
-        // Reuse the service's prompt builder (same path as real generation)
-        String raw = chat.prompt(CommitService.PromptBuilder.build(repo, author, files,
-                diff.length() > 18_000 ? diff.substring(0, 18_000) : diff)).call().content();
+        String raw = chat.prompt(CommitService.PromptBuilder.build(
+                repo, author, files, diff.length() > 18_000 ? diff.substring(0, 18_000) : diff
+        )).call().content();
         return raw;
     }
 
@@ -78,6 +79,7 @@ public class CommitController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public GenerateResponse generateJson(@RequestBody GenerateRequest req) {
+        if (service == null) throw new IllegalStateException("Commit generation unavailable (no AI)");
         var cm = service.generate(req.repo(), req.author(), req.files(), req.diff());
         return new GenerateResponse(CommitFormatter.toConventional(cm), cm);
     }
@@ -89,6 +91,7 @@ public class CommitController {
                                @RequestParam(defaultValue = "dev") String author,
                                @RequestParam String diff,
                                @RequestParam(name = "files", defaultValue = "") String filesRaw) {
+        if (service == null) return "AI COMMIT DISABLED (no CommitService)";
         var files = (filesRaw == null || filesRaw.isBlank())
                 ? List.<String>of()
                 : Arrays.stream(filesRaw.split("\\R|,"))
@@ -97,4 +100,8 @@ public class CommitController {
         var cm = service.generate(repo, author, files, diff);
         return service.format(cm);
     }
+
+    // Records stay the same
+    record GenerateRequest(String repo, String author, List<String> files, String diff) {}
+    record GenerateResponse(String message, CommitMessage structured) {}
 }

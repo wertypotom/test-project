@@ -3,12 +3,13 @@ package com.example.demo;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.regex.Pattern;
 
-/*Some commment*/
+@ConditionalOnBean(ChatClient.class)
 @Service
 public class CommitService {
 
