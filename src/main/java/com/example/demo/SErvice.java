@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -7,8 +8,9 @@ import java.util.List;
 @Service
 public class SErvice {
     private String name;
-    private String author;
-    private List<String> files;
+    private List<ChatClient> clients;
+    private Integer numberOfClients;
+
 
     private String diff;
 
@@ -20,20 +22,20 @@ public class SErvice {
         this.diff = diff;
     }
 
-    public String getAuthor() {
-        return author;
+    public List<ChatClient> getClients() {
+        return clients;
     }
 
-    public void setAuthor(String author) {
-        this.author = author;
+    public void setClients(List<ChatClient> clients) {
+        this.clients = clients;
     }
 
-    public List<String> getFiles() {
-        return files;
+    public Integer getNumberOfClients() {
+        return numberOfClients;
     }
 
-    public void setFiles(List<String> files) {
-        this.files = files;
+    public void setNumberOfClients(Integer numberOfClients) {
+        this.numberOfClients = numberOfClients;
     }
 
     public void setName(String name) {
