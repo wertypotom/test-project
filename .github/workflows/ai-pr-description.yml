@@ -38,18 +38,26 @@ jobs:
           echo $! > app.pid
           echo "Started app with PID $(cat app.pid)"
 
+      - name: Show Java and jar info
+  	run: |
+    	java -version
+    	ls -lh target/*.jar || true
+    	echo "OPENAI_API_KEY present? $([[ -n \"$OPENAI_API_KEY\" ]] && echo yes || echo no)"
+	
       - name: Wait for service health
-        run: |
-          for i in {1..30}; do
-            if curl -fsS http://localhost:8080/health | grep -q "ok"; then
-              echo "Service is healthy"
-              exit 0
-            fi
-            echo "Waiting for service... ($i)"
-            sleep 2
-          done
-          echo "Service did not become healthy in time"; tail -n 200 app.log || true; exit 1
-
+  	run: |
+   	for i in {1..40}; do
+      	if curl -fsS http://localhost:8080/health | grep -q "ok"; then
+        echo "Service is healthy"
+        exit 0
+      	fi
+      	sleep 2
+    	done
+    	echo "Service did not become healthy in time"
+    	echo "---- app.log (tail) ----"
+    	tail -n +1 app.log || true
+   	exit 1
+	
       - name: Build PR commit log (base..head)
         id: build_log
         run: |

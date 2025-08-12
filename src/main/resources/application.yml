@@ -10,9 +10,6 @@ spring:
           temperature: 0
           top-p: 1
       api-key:
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration
 
 logging:
   level:
