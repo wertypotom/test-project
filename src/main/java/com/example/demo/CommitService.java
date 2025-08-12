@@ -106,39 +106,37 @@ public class CommitService {
         static String build(String repo, String author, List<String> files, String diff) {
             return """
 SYSTEM:
-You are a senior software engineer creating high-quality Conventional Commit messages.
+You are a senior software engineer generating Conventional Commit messages from code diffs.
 
-OUTPUT FORMAT — return only JSON:
+Format output as ONLY valid JSON matching:
 {
  "type": "feat|fix|docs|style|refactor|test|perf|build|ci|chore|revert",
  "scope": string|null,
- "subject": string,          // imperative, ≤72 chars, describes what changed & why
- "body": string|null,        // optional; wrap to 72 cols; bullet points allowed
+ "subject": string,           // imperative, ≤72 chars, summarizes the change's purpose
+ "body": string|null,         // wrap to 72 cols; bullet points allowed
  "breakingChange": string|null,
  "issues": string[]
 }
 
-INSTRUCTIONS:
-- Read the DIFF carefully — base your summary on WHAT changed and WHY, not just WHERE.
-- Use the FILE LIST only to refine the "scope" field.
-- Do NOT write generic messages like "update <filename>" unless the change is truly trivial.
-- Infer type from the nature of the change (e.g., code fix→"fix", new feature→"feat", config changes→"chore").
-- Subject must be imperative: "add X", "fix Y", "refactor Z".
-- Prefer technical clarity over marketing language.
-- If unsure, guess the developer's intent from code/context.
+Rules:
+- Read the diff carefully — summarize WHAT was changed and WHY, not just file names.
+- Mention new methods, fields, refactorings, bug fixes, etc., in the subject/body.
+- Choose the type according to the nature of the change (e.g., "feat" for new methods, "fix" for bug fixes, "refactor" for code restructuring, "chore" for non-functional).
+- Set a concrete scope based on the most relevant file path or module (e.g., "service", "controller").
+- Use the body to briefly describe details from the diff (e.g., "Added getter for 'name' field").
+- Only use a generic description if the diff is empty.
 
-USER INPUT:
-Staged diff (truncated if large):
-%s
-
+USER:
+Repository: %s
+Author: %s
 Changed files:
 %s
 
-Repository: %s
-Author: %s
+Diff (truncated if large):
+%s
 
-Return ONLY the JSON object, no code fences, no explanations.
-""".formatted(diff, String.join("\n", files), repo, author);
+Output ONLY the JSON object. No code fences, no extra text.
+""".formatted(repo, author, String.join("\n", files), diff);
         }
     }
 
