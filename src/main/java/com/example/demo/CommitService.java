@@ -3,11 +3,13 @@ package com.example.demo;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.regex.Pattern;
 
+@ConditionalOnBean(ChatClient.class)
 @Service
 public class CommitService {
 
@@ -72,12 +74,13 @@ public class CommitService {
         return new CommitMessage(
                 "chore",
                 scope,
-                buildSubjectFromFiles(files),
-                buildBodyFromFiles(files),
+                "update " + (files.isEmpty() ? "repository files" : "implementation"),
+                files.isEmpty() ? null : "Modified:\n" + String.join("\n", files),
                 null,
                 List.of()
         );
     }
+
 
     private String deriveScope(List<String> files) {
         if (files == null || files.isEmpty()) return null;
@@ -99,43 +102,42 @@ public class CommitService {
         return sb.toString();
     }
 
-    // ---------- prompt builder (plain string, no template engine) ----------
     static final class PromptBuilder {
         static String build(String repo, String author, List<String> files, String diff) {
             return """
 SYSTEM:
-You are a senior developer generating Conventional Commits.
-Return ONLY valid JSON matching:
+You are a senior software engineer generating Conventional Commit messages from code diffs.
+
+Format output as ONLY valid JSON matching:
 {
  "type": "feat|fix|docs|style|refactor|test|perf|build|ci|chore|revert",
  "scope": string|null,
- "subject": string,          // imperative, ≤72 chars
- "body": string|null,        // wrap to 72 cols; bullet points allowed
- "breakingChange": string|null, // description if breaking, else null
- "issues": string[]          // referenced issue IDs like ["#123"], or []
+ "subject": string,           // imperative, ≤72 chars, summarizes the change's purpose
+ "body": string|null,         // wrap to 72 cols; bullet points allowed
+ "breakingChange": string|null,
+ "issues": string[]
 }
 
 Rules:
-- Infer type from the diff (tests→"test", perf-sensitive→"perf", ci files→"ci", etc.).
-- Prefer a concrete scope (module, package, or folder) if visible from file paths.
-- Do not invent issues; include only those explicitly present in input.
-- If API/behavior changes require user action, set breakingChange and reflect "!" later.
-- Keep subject concise and imperative: "add", "fix", "refactor", not past tense.
-- If multiple files change, choose the most representative scope (top-level directory or module name).
-- If the change only adds a line with no behavior change, prefer "chore" unless it clearly adds a feature.
+- Read the diff carefully — summarize WHAT was changed and WHY, not just file names.
+- Mention new methods, fields, refactorings, bug fixes, etc., in the subject/body.
+- Choose the type according to the nature of the change (e.g., "feat" for new methods, "fix" for bug fixes, "refactor" for code restructuring, "chore" for non-functional).
+- Set a concrete scope based on the most relevant file path or module (e.g., "service", "controller").
+- Use the body to briefly describe details from the diff (e.g., "Added getter for 'name' field").
+- Only use a generic description if the diff is empty.
 
 USER:
 Repository: %s
 Author: %s
-Changed files (staged):
+Changed files:
 %s
 
-Staged diff (truncated if large):
+Diff (truncated if large):
 %s
 
-Output MUST be a single JSON object only (no code fences, no backticks, no extra text).
-Produce the JSON now.
+Output ONLY the JSON object. No code fences, no extra text.
 """.formatted(repo, author, String.join("\n", files), diff);
         }
     }
+
 }

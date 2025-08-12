@@ -1,0 +1,115 @@
+name: AI-Generated PR Description (no Docker)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pr-description:
+    runs-on: ubuntu-latest
+
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build Spring Boot app
+        run: mvn -B -DskipTests package
+
+      - name: Start AI commit service
+        env:                      
+          SPRING_AI_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          JAR=$(ls target/*-SNAPSHOT.jar | head -n 1)
+          nohup java -jar "$JAR" > app.log 2>&1 &
+          echo $! > app.pid
+          echo "Started app with PID $(cat app.pid)"
+
+      - name: Show Java and jar info
+        run: |
+          java -version
+          ls -lh target/*.jar || true
+          echo "OPENAI_API_KEY present? $([[ -n \"$OPENAI_API_KEY\" ]] && echo yes || echo no)"
+
+      - name: Wait for service health
+        run: |
+          for i in {1..40}; do
+            if curl -fsS http://localhost:8080/health | grep -q "ok"; then
+              echo "Service is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Service did not become healthy in time"
+          echo "---- app.log (tail) ----"
+          tail -n +1 app.log || true
+          exit 1
+
+      - name: Build PR commit log (base..head)
+        id: build_log
+        run: |
+          BASE_SHA='${{ github.event.pull_request.base.sha }}'
+          HEAD_SHA='${{ github.sha }}'
+          echo "Range: ${BASE_SHA}..${HEAD_SHA}"
+          git log --format='%B%n----8<----' "${BASE_SHA}..${HEAD_SHA}" > pr-commits.txt || true
+          if [ ! -s pr-commits.txt ]; then
+            echo "Range empty; falling back to last 10 commits on HEAD"
+            git log --format='%B%n----8<----' -n 10 > pr-commits.txt || true
+          fi
+          echo "Preview of pr-commits.txt:"
+          head -n 50 pr-commits.txt || true
+
+      
+      - name: Generate PR description
+        id: gen_desc
+        run: |
+          DESCRIPTION=$(curl -fsS -X POST "http://localhost:8080/generate-pr-description-from-log?polish=false" \
+            -H "Content-Type: text/plain; charset=utf-8" \
+            --data-binary @pr-commits.txt)
+
+          # Save to outputs (preserve newlines safely)
+          echo "description<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$DESCRIPTION" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"       
+                  
+
+      - name: Update PR body
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const body = `${{ toJSON(steps.gen_desc.outputs.description) }}`;
+            const {owner, repo} = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            await github.rest.pulls.update({ owner, repo, pull_number, body });
+
+      - name: Print app logs (on failure)
+        if: failure()
+        run: |
+          echo "---- app.log (last 400 lines) ----"
+          tail -n 400 app.log || true
+
+      - name: Stop AI commit service
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" || true
+            sleep 2
+            pkill -f 'java -jar' || true
+          fi
+

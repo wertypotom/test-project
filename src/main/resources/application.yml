@@ -4,12 +4,12 @@ server:
 spring:
   ai:
     openai:
-      api-key: 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
       chat:
         options:
           model: gpt-4o-mini
           temperature: 0
           top-p: 1
+      api-key: ${SPRING_AI_OPENAI_API_KEY:?API key is missing!}
 
 logging:
   level:
