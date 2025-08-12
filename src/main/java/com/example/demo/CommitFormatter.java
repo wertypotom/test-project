@@ -1,9 +1,5 @@
 package com.example.demo;
 
-/*
-* Here is some comment
-* Another coment
-* */
 public final class CommitFormatter {
     private CommitFormatter() {}
 
