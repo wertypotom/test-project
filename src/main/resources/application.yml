@@ -9,8 +9,7 @@ spring:
           model: gpt-4o-mini
           temperature: 0
           top-p: 1
-      api-key: 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
-
+      api-key:
 logging:
   level:
     org.springframework.ai: DEBUG
