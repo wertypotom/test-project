@@ -4,12 +4,12 @@ server:
 spring:
   ai:
     openai:
-      api-key: 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
       chat:
         options:
           model: gpt-4o-mini
           temperature: 0
           top-p: 1
+      api-key: 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
 
 logging:
   level:

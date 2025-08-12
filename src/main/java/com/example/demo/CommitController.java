@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,6 +10,8 @@ import java.util.List;
 
 @RestController
 public class CommitController {
+    @Autowired
+    PrDescriptionService prDescriptionService;
 
     private final CommitService service;
     private final ChatClient chat;
@@ -20,6 +23,28 @@ public class CommitController {
 
     record GenerateRequest(String repo, String author, List<String> files, String diff) {}
     record GenerateResponse(String message, CommitMessage structured) {}
+
+    @PostMapping(path = "/generate-pr-description",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.TEXT_PLAIN_VALUE)
+    public String generatePrDescription(@RequestBody List<CommitMessage> commits,
+                                        @RequestParam(defaultValue="false") boolean polish) {
+        String md = prDescriptionService.buildDeterministic(commits);
+        return polish ? prDescriptionService.polishWithAi(md) : md;
+    }
+
+    @PostMapping(
+            path = "/generate-pr-description-from-log",
+            consumes = { MediaType.TEXT_PLAIN_VALUE, MediaType.ALL_VALUE },
+            produces = MediaType.TEXT_PLAIN_VALUE
+    )
+    public String generatePrDescriptionFromLog(@RequestBody String rawLog,
+                                               @RequestParam(defaultValue = "false") boolean polish) {
+        var commits = prDescriptionService.parseCommitsFromLog(rawLog == null ? "" : rawLog);
+        String md = prDescriptionService.buildDeterministic(commits);
+        return polish ? prDescriptionService.polishWithAi(md) : md;
+    }
+
 
     @GetMapping(path = "/health", produces = MediaType.TEXT_PLAIN_VALUE)
     public String health() { return "ok"; }
