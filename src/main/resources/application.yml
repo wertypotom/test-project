@@ -9,7 +9,7 @@ spring:
           model: gpt-4o-mini
           temperature: 0
           top-p: 1
-      api-key:
+      api-key: ${SPRING_AI_OPENAI_API_KEY}
 
 logging:
   level:

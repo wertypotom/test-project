@@ -32,6 +32,8 @@ jobs:
         run: mvn -B -DskipTests package
 
       - name: Start AI commit service
+        env:                      
+          SPRING_AI_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           JAR=$(ls target/*-SNAPSHOT.jar | head -n 1)
           nohup java -jar "$JAR" > app.log 2>&1 &
