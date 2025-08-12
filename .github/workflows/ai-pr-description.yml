@@ -74,17 +74,19 @@ jobs:
           echo "Preview of pr-commits.txt:"
           head -n 50 pr-commits.txt || true
 
+      
       - name: Generate PR description
         id: gen_desc
         run: |
           DESCRIPTION=$(curl -fsS -X POST "http://localhost:8080/generate-pr-description-from-log?polish=false" \
             -H "Content-Type: text/plain; charset=utf-8" \
             --data-binary @pr-commits.txt)
-          {
-            echo "description<<'EOF'"
-            echo "$DESCRIPTION"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+
+          # Save to outputs (preserve newlines safely)
+          echo "description<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$DESCRIPTION" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"       
+                  
 
       - name: Update PR body
         uses: actions/github-script@v7
