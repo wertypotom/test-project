@@ -6,7 +6,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write   # ✅ allow updating PR body
+  pull-requests: write
 
 jobs:
   pr-description:
@@ -39,39 +39,36 @@ jobs:
           echo "Started app with PID $(cat app.pid)"
 
       - name: Show Java and jar info
-  	run: |
-    	java -version
-    	ls -lh target/*.jar || true
-    	echo "OPENAI_API_KEY present? $([[ -n \"$OPENAI_API_KEY\" ]] && echo yes || echo no)"
-	
+        run: |
+          java -version
+          ls -lh target/*.jar || true
+          echo "OPENAI_API_KEY present? $([[ -n \"$OPENAI_API_KEY\" ]] && echo yes || echo no)"
+
       - name: Wait for service health
-  	run: |
-   	for i in {1..40}; do
-      	if curl -fsS http://localhost:8080/health | grep -q "ok"; then
-        echo "Service is healthy"
-        exit 0
-      	fi
-      	sleep 2
-    	done
-    	echo "Service did not become healthy in time"
-    	echo "---- app.log (tail) ----"
-    	tail -n +1 app.log || true
-   	exit 1
-	
+        run: |
+          for i in {1..40}; do
+            if curl -fsS http://localhost:8080/health | grep -q "ok"; then
+              echo "Service is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Service did not become healthy in time"
+          echo "---- app.log (tail) ----"
+          tail -n +1 app.log || true
+          exit 1
+
       - name: Build PR commit log (base..head)
         id: build_log
         run: |
           BASE_SHA='${{ github.event.pull_request.base.sha }}'
-          HEAD_SHA='${{ github.sha }}'  # head of this workflow run
+          HEAD_SHA='${{ github.sha }}'
           echo "Range: ${BASE_SHA}..${HEAD_SHA}"
-
           git log --format='%B%n----8<----' "${BASE_SHA}..${HEAD_SHA}" > pr-commits.txt || true
-
           if [ ! -s pr-commits.txt ]; then
             echo "Range empty; falling back to last 10 commits on HEAD"
             git log --format='%B%n----8<----' -n 10 > pr-commits.txt || true
           fi
-
           echo "Preview of pr-commits.txt:"
           head -n 50 pr-commits.txt || true
 
@@ -81,8 +78,6 @@ jobs:
           DESCRIPTION=$(curl -fsS -X POST "http://localhost:8080/generate-pr-description-from-log?polish=false" \
             -H "Content-Type: text/plain; charset=utf-8" \
             --data-binary @pr-commits.txt)
-
-          # Save to outputs (preserve newlines)
           {
             echo "description<<'EOF'"
             echo "$DESCRIPTION"
