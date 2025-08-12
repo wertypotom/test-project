@@ -4,40 +4,36 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write   # ✅ allow updating PR body
+
 jobs:
   pr-description:
     runs-on: ubuntu-latest
 
     env:
-      # Make the key available to your Spring app
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # we need full history for git log ranges
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-          cache: 'maven'
+          cache: maven
 
       - name: Build Spring Boot app
         run: mvn -B -DskipTests package
 
       - name: Start AI commit service
         run: |
-          # Find the built jar (adjust if you use a different module/jar name)
           JAR=$(ls target/*-SNAPSHOT.jar | head -n 1)
-          if [ -z "$JAR" ]; then
-            echo "Could not find jar in target/*-SNAPSHOT.jar"
-            exit 1
-          fi
-
-          # Start in background
           nohup java -jar "$JAR" > app.log 2>&1 &
           echo $! > app.pid
           echo "Started app with PID $(cat app.pid)"
@@ -52,16 +48,13 @@ jobs:
             echo "Waiting for service... ($i)"
             sleep 2
           done
-          echo "Service did not become healthy in time"
-          echo "---- app.log (tail) ----"
-          tail -n 200 app.log || true
-          exit 1
+          echo "Service did not become healthy in time"; tail -n 200 app.log || true; exit 1
 
       - name: Build PR commit log (base..head)
         id: build_log
         run: |
           BASE_SHA='${{ github.event.pull_request.base.sha }}'
-          HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+          HEAD_SHA='${{ github.sha }}'  # head of this workflow run
           echo "Range: ${BASE_SHA}..${HEAD_SHA}"
 
           git log --format='%B%n----8<----' "${BASE_SHA}..${HEAD_SHA}" > pr-commits.txt || true
@@ -81,16 +74,17 @@ jobs:
             -H "Content-Type: text/plain; charset=utf-8" \
             --data-binary @pr-commits.txt)
 
-          # Persist to output for next step
+          # Save to outputs (preserve newlines)
           {
             echo "description<<'EOF'"
             echo "$DESCRIPTION"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Update PR body with AI-generated description
+      - name: Update PR body
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const body = `${{ toJSON(steps.gen_desc.outputs.description) }}`;
             const {owner, repo} = context.repo;
@@ -107,7 +101,7 @@ jobs:
         if: always()
         run: |
           if [ -f app.pid ]; then
-            kill $(cat app.pid) || true
+            kill "$(cat app.pid)" || true
             sleep 2
             pkill -f 'java -jar' || true
           fi
