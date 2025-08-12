@@ -11,6 +11,24 @@ public class SomeDTO {
     private String message = "Some message";
     private Integer age = 20;
     private List<String> friends = new ArrayList<>();
+    private String animal = "Animal";
+    private String mother = "Mother";
+
+    public String getAnimal() {
+        return animal;
+    }
+
+    public void setAnimal(String animal) {
+        this.animal = animal;
+    }
+
+    public String getMother() {
+        return mother;
+    }
+
+    public void setMother(String mother) {
+        this.mother = mother;
+    }
 
     public String getName() {
         return name;
