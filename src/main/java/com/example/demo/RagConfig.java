@@ -19,6 +19,8 @@ public class RagConfig {
     }
 
     // Plain chat (no RAG)
+    /*
+    * Added some comments to describe functions */
     @Primary
     @Bean(name = "plainChatClient")
     ChatClient plainChatClient(ChatClient.Builder builder) {
