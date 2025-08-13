@@ -13,5 +13,6 @@ public class Service {
         names.add("Mother");
         names.add("Father");
         names.add("Son");
+        names.add("Daughter");
     }
 }
