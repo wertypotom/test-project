@@ -18,25 +18,33 @@ public class PrDescriptionService {
     public PrDescriptionService(@Autowired(required = false) ChatClient chat) {
         this.chat = chat;
     }
+
     /** Deterministic Markdown from commits (no AI). */
     public String buildDeterministic(List<CommitMessage> commits) {
         if (commits == null || commits.isEmpty()) return "# Update\n\n_No commits found._\n";
 
-        // Title: first feat/fix/perf/refactor subject (fallback to first subject)
+        // Title: first feat/fix/perf/refactor subject (fallback to first subject) + strip wrapping quotes
         String title = commits.stream()
-                .filter(c -> c.type()!=null && List.of("feat","fix","perf","refactor").contains(c.type()))
+                .filter(c -> {
+                    var t = c.type() == null ? "" : c.type().toLowerCase(Locale.ROOT);
+                    return List.of("feat","fix","perf","refactor").contains(t);
+                })
                 .map(CommitMessage::subject)
-                .filter(Objects::nonNull).filter(s -> !s.isBlank())
+                .filter(Objects::nonNull).map(String::trim).filter(s -> !s.isBlank())
                 .findFirst()
                 .orElseGet(() -> commits.stream()
-                        .map(CommitMessage::subject).filter(Objects::nonNull).findFirst().orElse("Update"));
+                        .map(CommitMessage::subject).filter(Objects::nonNull).map(String::trim)
+                        .filter(s -> !s.isBlank()).findFirst().orElse("Update"));
+        title = stripWrappingQuotes(title);
 
         var byType = commits.stream()
-                .collect(Collectors.groupingBy(c -> Optional.ofNullable(c.type()).orElse("other"),
+                .collect(Collectors.groupingBy(
+                        c -> Optional.ofNullable(c.type()).orElse("other").toLowerCase(Locale.ROOT),
                         LinkedHashMap::new, Collectors.toList()));
 
         var sb = new StringBuilder();
         sb.append("# ").append(title).append("\n\n");
+
         sb.append("## Summary\n");
         sb.append("- This PR includes ").append(commits.size()).append(" commit")
                 .append(commits.size()==1? "" : "s").append(".\n\n");
@@ -48,19 +56,43 @@ public class PrDescriptionService {
             if (list.isEmpty()) continue;
             sb.append("### ").append(t).append("\n");
             for (var c : list) {
-                var scope = (c.scope()==null || c.scope().isBlank()) ? "" : "(" + c.scope() + ")";
+                var scope = (c.scope()==null || c.scope().isBlank()) ? "" : "(" + c.scope().trim() + ")";
                 var subject = Optional.ofNullable(c.subject()).orElse("").trim();
-                sb.append("- ").append(t).append(scope).append(": ").append(subject).append("\n");
+                boolean breaking = c.breakingChange()!=null && !c.breakingChange().isBlank();
+
+                // Header line for this commit
+                sb.append("- ").append(t).append(scope);
+                if (breaking) sb.append("!");
+                sb.append(": ").append(subject).append("\n");
+
+                // BODY → bullets (preserve existing "- " bullets, otherwise add our own)
+                if (c.body()!=null && !c.body().isBlank()) {
+                    for (String line : c.body().strip().split("\\R+")) {
+                        var tline = line.trim();
+                        if (tline.isBlank()) continue;
+                        sb.append(tline.startsWith("- ") ? "  " + tline : "  - " + tline).append("\n");
+                    }
+                }
+
+                // BREAKING (if any)
+                if (breaking) {
+                    sb.append("  - BREAKING: ").append(c.breakingChange().trim()).append("\n");
+                }
+
+                // Issues (if any)
+                if (c.issues()!=null && !c.issues().isEmpty()) {
+                    sb.append("  - Issues: ").append(String.join(" ", c.issues())).append("\n");
+                }
             }
             sb.append("\n");
         }
 
         var breaking = commits.stream()
                 .map(CommitMessage::breakingChange)
-                .filter(Objects::nonNull).filter(s -> !s.isBlank()).toList();
+                .filter(Objects::nonNull).map(String::trim).filter(s -> !s.isBlank()).toList();
         if (!breaking.isEmpty()) {
             sb.append("## ⚠️ Breaking Changes\n");
-            breaking.forEach(b -> sb.append("- ").append(b.trim()).append("\n"));
+            breaking.forEach(b -> sb.append("- ").append(b).append("\n"));
             sb.append("\n");
         }
 
@@ -143,8 +175,23 @@ public class PrDescriptionService {
             while (im.find()) issues.add(im.group());
 
             String bodyStr = body.toString().strip();
-            out.add(new CommitMessage(type, scope, subject, bodyStr.isBlank()? null : bodyStr, breaking, new ArrayList<>(issues)));
+            out.add(new CommitMessage(
+                    type == null ? "chore" : type,
+                    scope,
+                    stripWrappingQuotes(subject),
+                    bodyStr.isBlank()? null : bodyStr,
+                    breaking,
+                    new ArrayList<>(issues))
+            );
         }
         return out;
+    }
+
+    // ---------- small helpers ----------
+
+    /** Strip a single pair of wrapping single or double quotes. */
+    private static String stripWrappingQuotes(String s) {
+        if (s == null) return null;
+        return s.replaceAll("^(\"|')(.+)(\\1)$", "$2");
     }
 }
