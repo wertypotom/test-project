@@ -6,6 +6,7 @@ import java.util.List;
 public class SomeDTO {
     private SomeDTO() {}
 
+    private String id;
 
     private String name = "SomeDTO";
     private String message = "Some message";
@@ -13,6 +14,22 @@ public class SomeDTO {
     private List<String> friends = new ArrayList<>();
     private String animal = "Animal";
     private String mother = "Mother";
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
 
     public String getAnimal() {
         return animal;
