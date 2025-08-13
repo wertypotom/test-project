@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>EA-PJ-GP3 — RAG + Multimodal + Observability</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #101727;
+            --muted: #9aa4b2;
+            --text: #e8eef5;
+            --line: #1f2a44;
+            --a: #7c5cff;
+            --b: #22d3ee;
+            --ok: #16a34a;
+            --err: #ef4444;
+            --chip: #0f1426;
+        }
+
+        html, body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            color: var(--text);
+            background: radial-gradient(1200px 600px at 10% -10%, #182142 0%, transparent 60%),
+            radial-gradient(1000px 480px at 85% -20%, #0e1b31 0%, transparent 65%),
+            var(--bg);
+            font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            padding: 32px 18px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: min(1120px, 100%)
+        }
+
+        .hero {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 0 0 18px
+        }
+
+        .title {
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: .2px;
+            font-size: clamp(24px, 3.2vw, 34px);
+            background: linear-gradient(90deg, #fff, #cfe0ff 45%, #a9ffef);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .subtitle {
+            margin: .3rem 0 0;
+            color: var(--muted)
+        }
+
+        .pill {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, .05)
+        }
+
+        .grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns:1fr 1fr
+        }
+
+        @media (max-width: 920px) {
+            .grid {
+                grid-template-columns:1fr
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent 30%), var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .25)
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            letter-spacing: .2px
+        }
+
+        textarea, input[type=text] {
+            width: 100%;
+            background: #0b1222;
+            color: var(--text);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s
+        }
+
+        textarea:focus, input[type=text]:focus {
+            border-color: #2c3f72;
+            box-shadow: 0 0 0 3px rgba(124, 92, 255, .15)
+        }
+
+        textarea {
+            resize: vertical
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center
+        }
+
+        .btn {
+            cursor: pointer;
+            border: none;
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-weight: 600;
+            letter-spacing: .2px;
+            transition: .16s transform, .16s opacity
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: .96
+        }
+
+        .btn:disabled {
+            opacity: .55;
+            cursor: not-allowed
+        }
+
+        .primary {
+            background: linear-gradient(90deg, var(--a), var(--b));
+            color: #0b0f1e
+        }
+
+        .ghost {
+            background: transparent;
+            color: #d7def0;
+            border: 1px solid var(--line)
+        }
+
+        .bar {
+            background: #0b1222;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 0
+        }
+
+        .answer {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 8px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent 20%)
+        }
+
+        .answer .head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px;
+            background: var(--chip);
+            border-bottom: 1px solid var(--line)
+        }
+
+        .answer .head .label {
+            font-weight: 600;
+            font-size: 12px;
+            color: #cfd7ea;
+            letter-spacing: .2px
+        }
+
+        .answer .head .actions {
+            display: flex;
+            gap: 6px
+        }
+
+        .answer .body {
+            padding: 12px;
+            white-space: pre-wrap
+        }
+
+        .dots {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--a);
+            box-shadow: 12px 0 0 var(--a), 24px 0 0 var(--a);
+            vertical-align: middle;
+            margin-left: 6px;
+            animation: dots 1.2s infinite ease-in-out
+        }
+
+        @keyframes dots {
+            0%, 80%, 100% {
+                box-shadow: 12px 0 0 var(--a), 24px 0 0 var(--a)
+            }
+            40% {
+                box-shadow: 12px 0 0 var(--a), 24px 0 0 transparent
+            }
+        }
+
+        .level {
+            height: 6px;
+            background: linear-gradient(90deg, var(--a), var(--b));
+            width: 0%;
+            border-radius: 999px;
+            transition: width .2s
+        }
+
+        .toast {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            display: grid;
+            gap: 8px;
+            z-index: 9999
+        }
+
+        .toast .t {
+            background: #0f1426;
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--a);
+            padding: 10px 12px;
+            border-radius: 12px;
+            min-width: 220px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, .35)
+        }
+
+        .t.ok {
+            border-left-color: var(--ok)
+        }
+
+        .t.err {
+            border-left-color: var(--err)
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="hero">
+        <div>
+            <h1 class="title">EA-PJ-GP3</h1>
+            <p class="subtitle">Chat • Summarize • Translate • <b>Images</b> • <b>Audio</b> • <b>RAG</b></p>
+        </div>
+        <span class="pill">Observability ready</span>
+    </div>
+
+    <!-- 1) Chat -->
+    <div class="card">
+        <h3>1) Chat</h3>
+        <textarea id="chatInput" rows="3" placeholder="Ask anything… (Enter to send)"></textarea>
+        <div class="row">
+            <button id="chatBtn" class="btn primary">Send</button>
+            <button id="chatCopy" class="btn ghost" disabled>Copy</button>
+            <button id="chatClear" class="btn ghost">Clear</button>
+        </div>
+        <div id="chatOut" class="answer" style="display:none">
+            <div class="head"><span class="label">Assistant</span>
+                <div class="actions">
+                    <button class="btn ghost" id="chatCopy2">Copy</button>
+                </div>
+            </div>
+            <div class="body" id="chatBody"></div>
+        </div>
+    </div>
+
+    <!-- 2 & 3 -->
+    <div class="grid">
+        <div class="card">
+            <h3>2) Summarize</h3>
+            <textarea id="sumInput" rows="6" placeholder="Paste long text…"></textarea>
+            <div class="row">
+                <button id="sumBtn" class="btn primary">Summarize</button>
+                <button id="sumCopy" class="btn ghost" disabled>Copy</button>
+                <button id="sumClear" class="btn ghost">Clear</button>
+            </div>
+            <div id="sumOut" class="answer" style="display:none">
+                <div class="head"><span class="label">Summary</span>
+                    <div class="actions">
+                        <button class="btn ghost" id="sumCopy2">Copy</button>
+                    </div>
+                </div>
+                <div class="body" id="sumBody"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>3) Translate</h3>
+            <textarea id="trInput" rows="6" placeholder="输入中文或其他语言…"></textarea>
+            <input id="trTo" type="text" placeholder="Target language code (e.g., en, zh, es)"/>
+            <div class="row">
+                <button id="trBtn" class="btn primary">Translate</button>
+                <button id="trCopy" class="btn ghost" disabled>Copy</button>
+                <button id="trClear" class="btn ghost">Clear</button>
+            </div>
+            <div id="trOut" class="answer" style="display:none">
+                <div class="head"><span class="label">Translation</span>
+                    <div class="actions">
+                        <button class="btn ghost" id="trCopy2">Copy</button>
+                    </div>
+                </div>
+                <div class="body" id="trBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4) Image -->
+    <div class="card">
+        <h3>4) Image generation</h3>
+        <input id="imgPrompt" type="text" placeholder="e.g., ‘a tuxedo cat astronaut, cinematic, 8k’"/>
+        <div class="row">
+            <button id="imgBtn" class="btn primary">Generate</button>
+            <button id="imgClear" class="btn ghost">Clear</button>
+        </div>
+        <div id="imgOut" style="margin-top:8px"></div>
+    </div>
+
+    <!-- 5) RAG -->
+    <div class="card">
+        <h3>5) RAG (grounded Q&A)</h3>
+        <textarea id="ragText" rows="5" placeholder="Paste some reference text here…"></textarea>
+        <div class="row">
+            <button id="ingestBtn" class="btn primary">Ingest</button>
+            <span class="subtitle" style="font-size:12px">Your text is chunked & embedded into an in-memory vector store.</span>
+        </div>
+        <div style="height:8px"></div>
+        <input id="ragQ" type="text" placeholder="Ask a question grounded on ingested text…"/>
+        <div class="row">
+            <button id="askBtn" class="btn primary">Ask</button>
+            <button id="ragCopy" class="btn ghost" disabled>Copy</button>
+            <button id="ragClear" class="btn ghost">Clear</button>
+        </div>
+        <div id="ragOut" class="answer" style="display:none">
+            <div class="head"><span class="label">Grounded answer</span>
+                <div class="actions">
+                    <button class="btn ghost" id="ragCopy2">Copy</button>
+                </div>
+            </div>
+            <div class="body" id="ragBody"></div>
+        </div>
+    </div>
+
+    <!-- 6) Audio — record/upload → transcribe -->
+    <div class="card">
+        <h3>6) Audio — record/upload → transcribe</h3>
+        <div class="row">
+            <button id="recBtn" class="btn primary">Start recording</button>
+            <button id="pickBtn" class="btn ghost">Upload audio</button>
+            <input id="fileInput" type="file" accept="audio/*" hidden/>
+            <span id="recNote" class="subtitle" style="font-size:12px">Browser will ask for microphone access.</span>
+        </div>
+        <div style="margin:10px 0 6px">
+            <div id="level" class="level"></div>
+        </div>
+        <audio id="player" controls style="width:100%;display:none;margin-top:6px"></audio>
+        <div class="row" style="margin-top:8px">
+            <button id="txBtn" class="btn primary" disabled>Transcribe</button>
+            <button id="toChatBtn" class="btn ghost" disabled>Send transcript to Chat</button>
+            <span id="txStatus" class="subtitle" style="font-size:12px"></span>
+        </div>
+        <div id="txOut" class="answer" style="display:none">
+            <div class="head"><span class="label">Transcript</span>
+                <div class="actions">
+                    <button class="btn ghost" id="txCopy">Copy</button>
+                </div>
+            </div>
+            <div class="body" id="txBody"></div>
+        </div>
+    </div>
+
+    <!-- 7) Audio — Text → Speech -->
+    <div class="card">
+        <h3>7) Audio — Text to Speech</h3>
+        <input id="ttsText" type="text" placeholder="Type text to synthesize…"/>
+        <div class="row" style="margin-top:8px">
+            <input id="ttsVoice" type="text" placeholder="Voice (e.g., alloy, verse)"/>
+            <button id="ttsBtn" class="btn primary">Generate speech</button>
+            <button id="ttsClear" class="btn ghost">Clear</button>
+        </div>
+        <audio id="ttsPlayer" controls style="width:100%;display:none;margin-top:8px"></audio>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    // ---------- helpers ----------
+    const $ = (id) => document.getElementById(id);
+    const toastHolder = $('toast');
+
+    function toast(msg, type = '') {
+        const el = document.createElement('div');
+        el.className = 't ' + type;
+        el.textContent = msg;
+        toastHolder.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+    }
+
+    // Robust loader: always restores label & enabled state and removes dots
+    function setLoading(btn, isLoading, label) {
+        if (!btn) return;
+        if (isLoading) {
+            if (!btn.dataset.label) btn.dataset.label = btn.textContent.trim();
+            btn.disabled = true;
+            btn.textContent = label || 'Working';
+            // avoid duplicate dots
+            if (!btn.querySelector('.dots')) btn.insertAdjacentHTML('beforeend', '<span class="dots" aria-hidden="true"></span>');
+        } else {
+            btn.disabled = false;
+            btn.textContent = btn.dataset.label || btn.textContent;
+            btn.removeAttribute('data-label');
+            const d = btn.querySelector('.dots');
+            if (d) d.remove();
+            // in case the browser batches disabled state, make sure it's re-enabled
+            queueMicrotask(() => {
+                btn.disabled = false;
+            });
+        }
+    }
+
+    function copyText(txt) {
+        navigator.clipboard.writeText(txt).then(() => toast('Copied', 'ok'));
+    }
+
+    function showAnswer(boxId, bodyId, text) {
+        const box = $(boxId), body = $(bodyId);
+        body.textContent = text;
+        box.style.display = 'block';
+    }
+
+    function clearAnswer(boxId, bodyId) {
+        $(bodyId).textContent = '';
+        $(boxId).style.display = 'none';
+    }
+
+    // ---------- 1) Chat ----------
+    async function doChat(btn) {
+        const input = $('chatInput').value.trim();
+        if (!input) return;
+        setLoading(btn, true, 'Sending');
+        $('chatCopy').disabled = true;
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({input})
+            });
+            const data = await res.json();
+            const out = data.answer || JSON.stringify(data, null, 2);
+            showAnswer('chatOut', 'chatBody', out);
+            $('chatCopy').disabled = !out;
+            toast('Chat replied', 'ok');
+        } catch (e) {
+            showAnswer('chatOut', 'chatBody', String(e));
+            toast('Chat failed', 'err');
+        } finally {
+            setLoading(btn, false);
+        }
+    }
+
+    $('chatBtn').addEventListener('click', e => doChat(e.currentTarget));
+    $('chatInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            $('chatBtn').click();
+        }
+    });
+    $('chatCopy').addEventListener('click', () => copyText($('chatBody').textContent));
+    $('chatCopy2').addEventListener('click', () => copyText($('chatBody').textContent));
+    $('chatClear').addEventListener('click', () => {
+        $('chatInput').value = '';
+        clearAnswer('chatOut', 'chatBody');
+    });
+
+    // ---------- 2) Summarize ----------
+    async function doSummarize(btn) {
+        const text = $('sumInput').value.trim();
+        if (!text) return;
+        setLoading(btn, true, 'Summarizing');
+        try {
+            const res = await fetch('/api/summarize', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text})
+            });
+            const data = await res.json();
+            const out = data.summary || JSON.stringify(data, null, 2);
+            showAnswer('sumOut', 'sumBody', out);
+            $('sumCopy').disabled = !out;
+            toast('Summary ready', 'ok');
+        } catch (e) {
+            showAnswer('sumOut', 'sumBody', String(e));
+            toast('Summarize failed', 'err');
+        } finally {
+            setLoading(btn, false);
+        }
+    }
+
+    $('sumBtn').addEventListener('click', e => doSummarize(e.currentTarget));
+    $('sumCopy').addEventListener('click', () => copyText($('sumBody').textContent));
+    $('sumCopy2').addEventListener('click', () => copyText($('sumBody').textContent));
+    $('sumClear').addEventListener('click', () => {
+        $('sumInput').value = '';
+        clearAnswer('sumOut', 'sumBody');
+        $('sumCopy').disabled = true;
+    });
+
+    // ---------- 3) Translate ----------
+    async function doTranslate(btn) {
+        const text = $('trInput').value.trim();
+        if (!text) return;
+        const to = $('trTo').value || 'en';
+        setLoading(btn, true, 'Translating');
+        try {
+            const res = await fetch('/api/translate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text, to})
+            });
+            const data = await res.json();
+            const out = data.translation || JSON.stringify(data, null, 2);
+            showAnswer('trOut', 'trBody', out);
+            $('trCopy').disabled = !out;
+            toast('Translated', 'ok');
+        } catch (e) {
+            showAnswer('trOut', 'trBody', String(e));
+            toast('Translate failed', 'err');
+        } finally {
+            setLoading(btn, false);
+        }
+    }
+
+    $('trBtn').addEventListener('click', e => doTranslate(e.currentTarget));
+    $('trCopy').addEventListener('click', () => copyText($('trBody').textContent));
+    $('trCopy2').addEventListener('click', () => copyText($('trBody').textContent));
+    $('trClear').addEventListener('click', () => {
+        $('trInput').value = '';
+        $('trTo').value = '';
+        clearAnswer('trOut', 'trBody');
+        $('trCopy').disabled = true;
+    });
+
+    // ---------- 4) Image ----------
+    $('imgBtn').addEventListener('click', async e => {
+        const prompt = $('imgPrompt').value.trim();
+        if (!prompt) return;
+        const btn = e.currentTarget;
+        setLoading(btn, true, 'Generating');
+        const box = $('imgOut');
+        box.innerHTML = '<div class="subtitle">Generating image…</div>';
+        try {
+            const res = await fetch('/api/image', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({prompt})
+            });
+            const data = await res.json();
+            box.innerHTML = '';
+            if (data.result && (data.result.startsWith('data:image') || data.result.length > 200)) {
+                const img = new Image();
+                img.src = 'data:image/png;base64,' + data.result;
+                img.style.maxWidth = '100%';
+                img.style.borderRadius = '12px';
+                img.style.border = '1px solid var(--line)';
+                box.appendChild(img);
+            } else if (data.result) {
+                const img = new Image();
+                img.src = data.result;
+                img.style.maxWidth = '100%';
+                img.style.borderRadius = '12px';
+                img.style.border = '1px solid var(--line)';
+                box.appendChild(img);
+            } else {
+                box.textContent = JSON.stringify(data, null, 2);
+            }
+            toast('Image ready', 'ok');
+        } catch (e) {
+            box.textContent = String(e);
+            toast('Image failed', 'err');
+        } finally {
+            setLoading(btn, false);
+        }
+    });
+    $('imgClear').addEventListener('click', () => {
+        $('imgPrompt').value = '';
+        $('imgOut').innerHTML = '';
+    });
+
+    // ---------- 5) RAG ----------
+    $('ingestBtn').addEventListener('click', async e => {
+        const text = $('ragText').value.trim();
+        if (!text) return;
+        setLoading(e.currentTarget, true, 'Indexing');
+        try {
+            const res = await fetch('/api/rag/ingest', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text, chunkSize: 800})
+            });
+            const data = await res.json();
+            showAnswer('ragOut', 'ragBody', 'Stored chunks: ' + data.stored);
+            toast('Text ingested', 'ok');
+        } catch (err) {
+            showAnswer('ragOut', 'ragBody', String(err));
+            toast('Ingest failed', 'err');
+        } finally {
+            setLoading(e.currentTarget, false);
+        }
+    });
+    $('askBtn').addEventListener('click', async e => {
+        const q = $('ragQ').value.trim();
+        if (!q) return;
+        setLoading(e.currentTarget, true, 'Asking');
+        try {
+            const res = await fetch('/api/rag/ask', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({q})
+            });
+            const data = await res.json();
+            const out = data.answer || JSON.stringify(data, null, 2);
+            showAnswer('ragOut', 'ragBody', out);
+            $('ragCopy').disabled = !out;
+            toast('Answer ready', 'ok');
+        } catch (err) {
+            showAnswer('ragOut', 'ragBody', String(err));
+            toast('Ask failed', 'err');
+        } finally {
+            setLoading(e.currentTarget, false);
+        }
+    });
+    $('ragCopy').addEventListener('click', () => copyText($('ragBody').textContent));
+    $('ragCopy2').addEventListener('click', () => copyText($('ragBody').textContent));
+    $('ragClear').addEventListener('click', () => {
+        $('ragText').value = '';
+        $('ragQ').value = '';
+        clearAnswer('ragOut', 'ragBody');
+        $('ragCopy').disabled = true;
+    });
+
+    // ---------- 6) Audio: record/upload → STT ----------
+    let stream, recorder, chunks = [];
+    let lastBlob = null, meterTimer = null;
+    const level = $('level'), player = $('player');
+
+    function startMeter(ms) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = ctx.createMediaStreamSource(ms), an = ctx.createAnalyser();
+        an.fftSize = 2048;
+        src.connect(an);
+        const data = new Uint8Array(an.frequencyBinCount);
+        meterTimer = setInterval(() => {
+            an.getByteTimeDomainData(data);
+            let peak = 0;
+            for (let v of data) peak = Math.max(peak, Math.abs(v - 128));
+            level.style.width = Math.min(100, (peak / 64) * 100) + '%';
+        }, 120);
+    }
+
+    function stopMeter() {
+        clearInterval(meterTimer);
+        level.style.width = '0%';
+    }
+
+    $('recBtn').addEventListener('click', async e => {
+        const btn = e.currentTarget;
+        if (recorder && recorder.state === 'recording') {
+            recorder.stop();
+            stream.getTracks().forEach(t => t.stop());
+            stopMeter();
+            btn.textContent = 'Start recording';
+            btn.classList.remove('ghost');
+            btn.classList.add('primary');
+            $('recNote').textContent = 'Stopped.';
+            return;
+        }
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
+            });
+            recorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
+            chunks = [];
+            lastBlob = null;
+            player.style.display = 'none';
+            $('txBtn').disabled = true;
+            $('toChatBtn').disabled = true;
+            clearAnswer('txOut', 'txBody');
+            recorder.ondataavailable = (ev) => {
+                if (ev.data.size > 0) chunks.push(ev.data);
+            };
+            recorder.onstop = () => {
+                lastBlob = new Blob(chunks, {type: 'audio/webm'});
+                player.src = URL.createObjectURL(lastBlob);
+                player.style.display = 'block';
+                $('txBtn').disabled = false;
+                stream.getTracks().forEach(t => t.stop());
+            };
+            recorder.start();
+            startMeter(stream);
+            btn.textContent = 'Stop recording';
+            btn.classList.remove('primary');
+            btn.classList.add('ghost');
+            $('recNote').textContent = 'Recording…';
+        } catch (err) {
+            $('recNote').textContent = 'Microphone permission denied.';
+            console.error(err);
+        }
+    });
+
+    $('pickBtn').addEventListener('click', () => $('fileInput').click());
+    $('fileInput').addEventListener('change', () => {
+        if ($('fileInput').files.length) {
+            lastBlob = $('fileInput').files[0];
+            player.src = URL.createObjectURL(lastBlob);
+            player.style.display = 'block';
+            $('txBtn').disabled = false;
+            $('toChatBtn').disabled = true;
+            clearAnswer('txOut', 'txBody');
+        }
+    });
+
+    $('txBtn').addEventListener('click', async e => {
+        if (!lastBlob) {
+            $('txStatus').textContent = 'Record or choose a file first.';
+            return;
+        }
+        const btn = e.currentTarget;
+        setLoading(btn, true, 'Transcribing');
+        $('txStatus').textContent = '';
+        try {
+            const fd = new FormData();
+            fd.append('file', lastBlob, lastBlob.name || 'recording.webm');
+            const res = await fetch('/api/audio/transcribe', {method: 'POST', body: fd});
+            const data = await res.json();
+            const text = data.text || data.transcript || data.result || JSON.stringify(data, null, 2);
+            showAnswer('txOut', 'txBody', text);
+            $('toChatBtn').disabled = !text;
+            toast('Transcribed', 'ok');
+        } catch (err) {
+            showAnswer('txOut', 'txBody', String(err));
+            toast('Transcribe failed', 'err');
+        } finally {
+            setLoading(btn, false);
+        }
+    });
+    $('txCopy').addEventListener('click', () => copyText($('txBody').textContent));
+    $('toChatBtn').addEventListener('click', () => {
+        const t = $('txBody').textContent.trim();
+        if (!t) return;
+        $('chatInput').value = 'Please respond to this transcript: ' + t;
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    });
+
+    // ---------- 7) Audio: TTS (FIXED loader) ----------
+    $('ttsBtn').addEventListener('click', async e => {
+        const text = $('ttsText').value.trim();
+        if (!text) return;
+        const voice = ($('ttsVoice').value || 'alloy').trim();
+        const btn = e.currentTarget;
+        setLoading(btn, true, 'Synthesizing');
+        try {
+            const res = await fetch('/api/audio/tts', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text, voice})
+            });
+            const data = await res.json();
+            if (data.audioB64) {
+                $('ttsPlayer').src = 'data:audio/mpeg;base64,' + data.audioB64;
+                $('ttsPlayer').style.display = 'block';
+                try {
+                    await $('ttsPlayer').play();
+                } catch (_) {
+                }
+                toast('Speech ready', 'ok');
+            } else {
+                toast('TTS failed', 'err');
+            }
+        } catch (err) {
+            toast('TTS failed', 'err');
+        } finally {
+            setLoading(btn, false);
+        }  // ← always restores state
+    });
+    $('ttsClear').addEventListener('click', () => {
+        $('ttsText').value = '';
+        $('ttsVoice').value = '';
+        $('ttsPlayer').pause();
+        $('ttsPlayer').removeAttribute('src');
+        $('ttsPlayer').style.display = 'none';
+    });
+</script>
+</body>
+</html>
