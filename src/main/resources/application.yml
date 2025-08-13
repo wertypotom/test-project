@@ -4,12 +4,40 @@ server:
 spring:
   ai:
     openai:
+      api-key: ${SPRING_AI_OPENAI_API_KEY:?API key is missing!}
       chat:
         options:
           model: gpt-4o-mini
-          temperature: 0
-          top-p: 1
-      api-key: ${SPRING_AI_OPENAI_API_KEY:?API key is missing!}
+          temperature: 0.2
+      embedding:
+        options:
+          model: text-embedding-3-small
+      image:
+        options:
+          model: gpt-image-1
+      audio:
+        transcription:
+          options:
+            model: gpt-4o-transcribe   # or whisper-1
+            response-format: text
+        speech:
+          options:
+            model: gpt-4o-mini-tts     # lightweight TTS
+            voice: alloy               # default voice; can override via request
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: spring-ai-demo
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            requests: true
 
 logging:
   level:
