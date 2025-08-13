@@ -75,6 +75,3 @@ git push origin new_branch
 ### Step 2 – Create PR
 On GitHub, open a Pull Request from your branch and wait until all pipelines will finish
 
-### 📌 Notes
-
-Ensure your SPRING_AI_OPENAI_API_KEY is set in your shell or CI environment before running.
