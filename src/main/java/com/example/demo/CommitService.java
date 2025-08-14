@@ -37,16 +37,12 @@ public class CommitService {
 
         String raw;
         try {
-            // If using OpenAI and you want stricter JSON, you can enable JSON mode:
-            // var options = OpenAiChatOptions.builder().responseFormat("json_object").build();
-            // raw = chat.prompt(prompt).options(options).call().content();
             raw = chat.prompt(prompt).call().content();
         } catch (Exception e) {
             e.printStackTrace();
             return fallback(files);
         }
 
-        // Try strict parse, then relaxed "first JSON object" parse
         try {
             return mapper.readValue(raw, CommitMessage.class);
         } catch (Exception parse1) {
@@ -55,7 +51,6 @@ public class CommitService {
                 try {
                     return mapper.readValue(m.group(), CommitMessage.class);
                 } catch (Exception ignore) {
-                    // fall through
                 }
             }
             System.err.println("[commit-ai] parse failed; raw output was:\n" + raw);
@@ -112,8 +107,8 @@ Format output as ONLY valid JSON matching:
 {
  "type": "feat|fix|docs|style|refactor|test|perf|build|ci|chore|revert",
  "scope": string|null,
- "subject": string,           // imperative, ≤72 chars, summarizes the change's purpose
- "body": string|null,         // wrap to 72 cols; bullet points allowed
+ "subject": string,
+ "body": string|null,
  "breakingChange": string|null,
  "issues": string[]
 }

@@ -21,8 +21,6 @@ public class CommitController {
     @Autowired(required = false)
     private ChatClient chat;
 
-    // --- PR description endpoints (work in CI with no OpenAI key) ---
-
     @PostMapping(path = "/generate-pr-description",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.TEXT_PLAIN_VALUE)
@@ -46,8 +44,6 @@ public class CommitController {
 
     @GetMapping(path = "/health", produces = MediaType.TEXT_PLAIN_VALUE)
     public String health() { return "ok"; }
-
-    // --- Endpoints below need ChatClient / CommitService; guard them ---
 
     @GetMapping(path = "/ping-openai", produces = MediaType.TEXT_PLAIN_VALUE)
     public String pingOpenAI() {
@@ -101,7 +97,6 @@ public class CommitController {
         return service.format(cm);
     }
 
-    // Records stay the same
     record GenerateRequest(String repo, String author, List<String> files, String diff) {}
     record GenerateResponse(String message, CommitMessage structured) {}
 }

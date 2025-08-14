@@ -19,11 +19,9 @@ public class PrDescriptionService {
         this.chat = chat;
     }
 
-    /** Deterministic Markdown from commits (no AI). */
     public String buildDeterministic(List<CommitMessage> commits) {
         if (commits == null || commits.isEmpty()) return "# Update\n\n_No commits found._\n";
 
-        // Title: first feat/fix/perf/refactor subject (fallback to first subject) + strip wrapping quotes
         String title = commits.stream()
                 .filter(c -> {
                     var t = c.type() == null ? "" : c.type().toLowerCase(Locale.ROOT);
@@ -107,9 +105,8 @@ public class PrDescriptionService {
         return sb.toString();
     }
 
-    /** Optional polish with AI (keeps structure, improves wording). */
     public String polishWithAi(String markdown) {
-        if (chat == null) return markdown; // no AI available in CI: just return deterministic text
+        if (chat == null) return markdown;
         try {
             String prompt = """
         Improve clarity and tone of the following PR description, but keep the same sections and bullets.

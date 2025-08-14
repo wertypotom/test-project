@@ -24,7 +24,6 @@ public final class CommitFormatter {
         return sb.toString().trim();
     }
 
-    // naive line wrap for demo
     private static String wrap(String text, int width) {
         String[] words = text.replace("\n", " ").split("\\s+");
         StringBuilder out = new StringBuilder();
