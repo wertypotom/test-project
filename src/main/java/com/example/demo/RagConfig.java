@@ -8,6 +8,7 @@ import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 public class RagConfig {
@@ -18,6 +19,7 @@ public class RagConfig {
     }
 
     // Plain chat (no RAG)
+    @Primary
     @Bean(name = "plainChatClient")
     ChatClient plainChatClient(ChatClient.Builder builder) {
         return builder.build();
